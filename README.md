@@ -8,7 +8,7 @@ A Streamlit-based application for securely storing and retrieving encrypted data
 
 ## ▶️ Live Demo
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://assignment-4-yccsrpsklanvtztwaxtcnb.streamlit.app/)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://dataencrypteddecrypted-w3oakjjanqd79xrgkdd9ew.streamlit.app/)
 
 ## 🛡️ Security Features
 - ✔️ Military-grade encryption (Fernet)
