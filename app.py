@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import base64
 import time
 from datetime import datetime
 
@@ -95,6 +94,60 @@ def verify_user(username, password):
         return True, "Login successful"
     return False, "Incorrect password"
 
+# Data management functions
+def delete_data(username, data_key):
+    user_dir = create_user_data_dir(username)
+    data_file = f'{user_dir}/data.json'
+    
+    if not os.path.exists(data_file):
+        return False, "No data found for this user"
+    
+    with open(data_file, 'r') as f:
+        data = json.load(f)
+    
+    if data_key not in data:
+        return False, "Data key not found"
+    
+    # If it's a file, delete the encrypted file
+    if data[data_key]['type'] == 'file':
+        file_path = f"{user_dir}/{data[data_key]['file_name']}"
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    
+    # Remove the entry from data
+    del data[data_key]
+    
+    with open(data_file, 'w') as f:
+        json.dump(data, f)
+    
+    return True, "Data deleted successfully"
+
+def update_text_data(username, data_key, new_text, passkey):
+    user_dir = create_user_data_dir(username)
+    data_file = f'{user_dir}/data.json'
+    
+    if not os.path.exists(data_file):
+        return False, "No data found for this user"
+    
+    with open(data_file, 'r') as f:
+        data = json.load(f)
+    
+    if data_key not in data:
+        return False, "Data key not found"
+    
+    if data[data_key]['type'] != 'text':
+        return False, "Only text data can be updated this way"
+    
+    # Encrypt the new text
+    encrypted_text = encrypt_text(new_text, passkey)
+    data[data_key]['encrypted_text'] = encrypted_text.decode()
+    data[data_key]['updated_at'] = datetime.now().isoformat()
+    
+    with open(data_file, 'w') as f:
+        json.dump(data, f)
+    
+    return True, "Text data updated successfully"
+
 # UI Components
 def registration_page():
     st.title("👤 User Registration")
@@ -146,7 +199,7 @@ def login_page():
 
 def dashboard():
     st.sidebar.title(f"🔒 Secure Vault - {st.session_state.username}")
-    menu = st.sidebar.selectbox("Menu", ["Store Data", "Retrieve Data", "Account Info"])
+    menu = st.sidebar.selectbox("Menu", ["Store Data", "Retrieve Data", "Manage Data", "Account Info"])
     
     if menu == "Store Data":
         st.header("💾 Store New Data")
@@ -314,6 +367,67 @@ def dashboard():
                             handle_failed_attempt()
                 except Exception as e:
                     st.error(f"Error retrieving data: {str(e)}")
+    
+    elif menu == "Manage Data":
+        st.header("🛠️ Manage Your Data")
+        
+        user_dir = create_user_data_dir(st.session_state.username)
+        data_file = f'{user_dir}/data.json'
+        
+        if not os.path.exists(data_file):
+            st.warning("No data found for this user.")
+            return
+        
+        with open(data_file, 'r') as f:
+            data = json.load(f)
+        
+        if not data:
+            st.warning("No data found for this user.")
+            return
+        
+        data_items = list(data.items())
+        selected_item = st.selectbox("Select data to manage", [f"{k} ({v['type']})" for k, v in data_items])
+        
+        if selected_item:
+            selected_key = selected_item.split(" (")[0]
+            item_data = data[selected_key]
+            
+            st.subheader(f"Manage: {selected_key}")
+            
+            if item_data['type'] == "text":
+                # Update text data
+                st.write("Update Text Content")
+                new_text = st.text_area("Enter new text content", height=150)
+                update_passkey = st.text_input("Enter passkey to update", type="password")
+                
+                if st.button("Update Text"):
+                    if new_text and update_passkey:
+                        success, message = update_text_data(
+                            st.session_state.username,
+                            selected_key,
+                            new_text,
+                            update_passkey
+                        )
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.warning("Please enter both new text and passkey")
+            
+            # Delete option (available for both text and files)
+            st.write("### Delete Data")
+            st.warning("This action cannot be undone!")
+            
+            if st.button("Delete This Data"):
+                success, message = delete_data(st.session_state.username, selected_key)
+                if success:
+                    st.success(message)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(message)
     
     elif menu == "Account Info":
         st.header("👤 Account Information")
